@@ -119,6 +119,41 @@ class ExtremumAnalyzer:
         extremums.sort(key=lambda x: x['index'])
         return extremums
     
+    def calculate_volume_profile(self, df, bins=50):
+        """
+        计算成交量分布 (Volume Profile)
+        识别高成交量区域 (High Volume Nodes)
+        """
+        # 计算价格范围
+        min_p = df['low'].min()
+        max_p = df['high'].max()
+        
+        # 创建价格箱
+        price_bins = np.linspace(min_p, max_p, bins + 1)
+        volume_profile = defaultdict(float)
+        
+        # 将成交量分配到对应的价格箱中
+        for i in range(len(df)):
+            row = df.iloc[i]
+            # 简化模型：将成交量分配给收盘价所属的箱
+            # 进阶模型可以按K线高低点分布成交量
+            bin_idx = np.digitize(row['close'], price_bins) - 1
+            if 0 <= bin_idx < bins:
+                price_level = (price_bins[bin_idx] + price_bins[bin_idx+1]) / 2
+                volume_profile[round(price_level, 2)] += row['tick_volume']
+        
+        # 识别控制点 (POC - Point of Control)
+        if not volume_profile:
+            return None, []
+            
+        poc_price = max(volume_profile, key=volume_profile.get)
+        
+        # 识别高成交量节点 (高于平均成交量 1.5 倍)
+        avg_vol = np.mean(list(volume_profile.values()))
+        hvn_levels = [price for price, vol in volume_profile.items() if vol > avg_vol * 1.5]
+        
+        return poc_price, sorted(hvn_levels)
+
     def analyze_extremum_patterns(self, df, extremums):
         """分析极值点的规律"""
         patterns = {
@@ -395,12 +430,24 @@ class ExtremumAnalyzer:
             print("分析极值点规律...")
             patterns = self.analyze_extremum_patterns(df, extremums)
             
+            # 计算成交量分布
+            print("计算成交量分布 (Volume Profile)...")
+            poc_price, hvn_levels = self.calculate_volume_profile(df)
+            
             # 总结规律
             print("总结规律...")
             rules = self.find_pattern_rules(patterns)
             
             # 生成报告
             report = self.generate_report(df, extremums, patterns, rules)
+            
+            # 添加成交量分布到报告
+            if poc_price:
+                report += f"\n【成交量分布分析 (VPVR)】\n"
+                report += f"1. 控制点 (POC): ${poc_price:.2f} (该价位成交量最集中)\n"
+                report += f"2. 高成交量节点 (HVN): {len(hvn_levels)} 个重要价位区\n"
+                report += f"   最近的 HVN: {', '.join([f'${p:.2f}' for p in hvn_levels[-5:]])}\n"
+            
             print("\n" + report)
             
             # 保存报告
