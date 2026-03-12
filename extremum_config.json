@@ -1,0 +1,19 @@
+{
+  "default_settings": {
+    "symbol": "XAUUSD",
+    "timeframe": "H1",
+    "bars": 1000,
+    "order": 5,
+    "min_extremum_distance": 3
+  },
+  "analysis_parameters": {
+    "support_resistance_threshold": 3,
+    "high_volume_ratio": 1.5,
+    "price_precision": 0.1
+  },
+  "visualization": {
+    "figure_size": [15, 8],
+    "dpi": 150,
+    "show_volume": true
+  }
+}
